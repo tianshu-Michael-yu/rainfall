@@ -50,6 +50,10 @@ inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, cons
                 lowestElevation = std::min(lowestElevation, elevation_map[IND(i+1,j)]);
             }
             // store neighbors with lowest elevation
+            // if lowest elevation is the current cell, then it has no neighbor
+            if (elevation_map[IND(i,j)] <= lowestElevation) {
+                continue;
+            }
             // left
             if (j > 0 && elevation_map[IND(i,j-1)] == lowestElevation) {
                 lowestNeighbors[IND(i,j)].indexes[lowestNeighbors[IND(i,j)].num] = IND(i,j-1);
@@ -90,7 +94,7 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
                     waterAboveGround[ind] += 1.0F;
                 }
                 // absorb water
-                waterAbsorbed[ind] = std::min(waterAboveGround[ind], absorption_rate);
+                waterAbsorbed[ind] += std::min(waterAboveGround[ind], absorption_rate);
                 // update water above ground
                 waterAboveGround[ind] = std::max(0.0F, waterAboveGround[ind] - absorption_rate);
                 waterAboveGroundCopy[ind] = waterAboveGround[ind];
@@ -98,10 +102,6 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
                     allAbsorbed = false;
                 }
         }
-        if (allAbsorbed) {
-            break;
-        }
-
         flow_to_neighbor(waterAboveGround, elevation_map, waterAboveGroundCopy, lowestNeighbors, dim_landscape);
         ++num_steps;
     }

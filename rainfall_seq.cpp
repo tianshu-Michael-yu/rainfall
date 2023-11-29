@@ -5,6 +5,15 @@
 #include "rainfall_simulation.h"
 #include "io_processing.h"
 
+template <typename T>
+inline void printMatrix(const T *matrix, const size_t dim_landscape) {
+    for (size_t i = 0; i < dim_landscape; ++i) {
+        for (size_t j = 0; j < dim_landscape; ++j) {
+            std::cout << matrix[i*dim_landscape + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
 
 int main(int argc, char * argv[]) {
     // get all the arguments
