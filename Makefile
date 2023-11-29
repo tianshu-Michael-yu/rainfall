@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -O2 -std=c++11 -pthread
+CXXFLAGS := -O3 -std=c++11 -pthread
 
 TARGET := rainfall_seq
 

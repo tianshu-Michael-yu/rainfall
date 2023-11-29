@@ -31,6 +31,7 @@ inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, cons
     // calculate the lowest neighbor for each cell
     for (size_t i=0; i<dim_landscape; ++i) {
         for (size_t j=0; j<dim_landscape; ++j) {
+            lowestNeighbors[IND(i,j)].num = 0;
             // find the lowest elevation among the neighbors
             int lowestElevation = elevation_map[IND(i,j)];
             // left
