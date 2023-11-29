@@ -17,10 +17,19 @@ inline void printMatrix(const T *matrix, const size_t dim_landscape) {
 
 int main(int argc, char * argv[]) {
     // get all the arguments
+    #define SEQ
+    #ifdef SEQ
     const size_t rain_time = atoi(argv[1]);
     const float absorption_rate = atof(argv[2]);
     const size_t dim_landscape = atoi(argv[3]);
     std::ifstream landscape_file(argv[4], std::ifstream::in);
+    #else
+    const size_t num_threads = atoi(argv[1]);
+    const size_t rain_time = atoi(argv[2]);
+    const float absorption_rate = atof(argv[3]);
+    const size_t dim_landscape = atoi(argv[4]);
+    std::ifstream landscape_file(argv[5], std::ifstream::in);
+    #endif
     // read in the landscape and establish the elevation map
     int *elevationMap = createElevationMap(landscape_file, dim_landscape);
     // set up water above the ground (currently)

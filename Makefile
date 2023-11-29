@@ -1,12 +1,15 @@
 CXX := g++
 CXXFLAGS := -O3 -std=c++11 -pthread
 
-TARGET := rainfall_seq
+TARGET := rainfall_seq rainfall_pt
 
 all: $(TARGET)
 
-rainfall_seq: rainfall_seq.o io_processing.o rainfall_simulation.o
+rainfall_pt: rainfall_seq.o io_processing.o rainfall_simulation.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
+
+rainfall_seq: rainfall_seq.o io_processing.o rainfall_simulation.o
+	$(CXX) -DSEQ $(CXXFLAGS) $^ -o $@
 
 rainfall_seq.o: rainfall_seq.cpp io_processing.h rainfall_simulation.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
