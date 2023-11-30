@@ -17,7 +17,6 @@ inline void printMatrix(const T *matrix, const size_t dim_landscape) {
 
 int main(int argc, char * argv[]) {
     // get all the arguments
-    #define SEQ
     #ifdef SEQ
     const size_t rain_time = atoi(argv[1]);
     const float absorption_rate = atof(argv[2]);
