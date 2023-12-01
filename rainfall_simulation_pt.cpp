@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <thread>
+#include <barrier>
 
 #define NUM_THREADS 1
 
@@ -17,8 +18,8 @@ constexpr size_t ceilDiv(const size_t &a, const size_t &b) {
 void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
 const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors, 
-const size_t itPerBlock, const size_t id);
-
+const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> *iterationBarrier);
+ 
 inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, const size_t dim_landscape) {
     LowestNeighbors *lowestNeighbors = new LowestNeighbors[dim_landscape*dim_landscape];
     #define IND(i,j) ((i)*dim_landscape + (j))
@@ -83,10 +84,11 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
     const LowestNeighbors *lowestNeighbors = initLowestNeighbors(elevation_map, dim_landscape);
     std::thread threads[NUM_THREADS]; 
     size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, NUM_THREADS); 
+    std::barrier<std::__empty_completion> iterationBarrier(NUM_THREADS);
     for (size_t id = 0; id < NUM_THREADS; ++id) {
         threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, 
         std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, 
-        absorption_rate, waterAboveGroundCopy, lowestNeighbors, itPerBlock, id);
+        absorption_rate, waterAboveGroundCopy, lowestNeighbors, itPerBlock, id, &iterationBarrier);
     }
     for (auto &th : threads) {
         th.join();
@@ -99,7 +101,7 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
 void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
 const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors, 
-const size_t itPerBlock, const size_t id)
+const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> *iterationBarrier)
 {
     size_t start = id*itPerBlock;
     size_t end = std::min(id*itPerBlock +itPerBlock, dim_landscape*dim_landscape);
@@ -123,6 +125,7 @@ const size_t itPerBlock, const size_t id)
                 allAbsorbed = false;
             }
         }
+        iterationBarrier->arrive_and_wait();
         for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
         {
             // calculate the amount of water that can flow to the each of the lowest neighbor
@@ -136,9 +139,11 @@ const size_t itPerBlock, const size_t id)
             // update the water above ground for each neighbor
             for (size_t i = 0; i < lowestNeighbors[ind].num; ++i)
             {
-                waterAboveGround[lowestNeighbors[ind].indexes[i]] += waterToEachNeighbor;
+                size_t neighborIndex = lowestNeighbors[ind].indexes[i];
+                waterAboveGround[neighborIndex] += waterToEachNeighbor;
             }
         }
+        iterationBarrier->arrive_and_wait();
         ++num_steps;
     }
 }

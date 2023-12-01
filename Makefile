@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -ggdb3 -std=c++11 -pthread -g
+CXXFLAGS := -ggdb3 -std=c++20 -pthread -g
 
 TARGET := rainfall_seq rainfall_pt
 
