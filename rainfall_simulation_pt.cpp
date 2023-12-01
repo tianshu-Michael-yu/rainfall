@@ -10,7 +10,14 @@ struct LowestNeighbors {
     size_t num;
 };
 
-void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors);
+constexpr size_t ceilDiv(const size_t &a, const size_t &b) {
+    return (a + b - 1) / b;
+}
+
+void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
+const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
+const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors, 
+const size_t itPerBlock, const size_t id);
 
 inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, const size_t dim_landscape) {
     LowestNeighbors *lowestNeighbors = new LowestNeighbors[dim_landscape*dim_landscape];
@@ -75,8 +82,11 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
     // calculate the loest neighbor for each cell
     const LowestNeighbors *lowestNeighbors = initLowestNeighbors(elevation_map, dim_landscape);
     std::thread threads[NUM_THREADS]; 
+    size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, NUM_THREADS); 
     for (size_t id = 0; id < NUM_THREADS; ++id) {
-        threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, absorption_rate, waterAboveGroundCopy, lowestNeighbors);
+        threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, 
+        std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, 
+        absorption_rate, waterAboveGroundCopy, lowestNeighbors, itPerBlock, id);
     }
     for (auto &th : threads) {
         th.join();
@@ -86,13 +96,18 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
     return num_steps;
 }
 
-void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors)
+void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
+const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
+const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors, 
+const size_t itPerBlock, const size_t id)
 {
+    size_t start = id*itPerBlock;
+    size_t end = std::min(id*itPerBlock +itPerBlock, dim_landscape*dim_landscape);
     while (!allAbsorbed)
     {
         allAbsorbed = true;
         // traverse the landscape
-        for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
+        for (size_t ind = start; ind < end; ++ind)
         {
             if (num_steps < rain_time)
             {
