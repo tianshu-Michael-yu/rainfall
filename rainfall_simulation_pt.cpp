@@ -3,28 +3,14 @@
 #include <algorithm>
 #include <thread>
 
+#define NUM_THREADS 1
+
 struct LowestNeighbors {
     size_t indexes[4];
     size_t num;
 };
 
-inline void flow_to_neighbor(float *waterAboveGround, const int *elevation_map, float *waterAboveGroundCopy, 
-const LowestNeighbors *lowestNeighbors,const size_t dim_landscape ) {
-    // find the lowest neighbor for each cell, if equal elevation, evenly divide the water
-    for (size_t ind = 0; ind < dim_landscape*dim_landscape; ++ind) {
-        // calculate the amount of water that can flow to the each of the lowest neighbor 
-        if (lowestNeighbors[ind].num == 0) {
-            continue;
-        }
-        float waterLoss =  (waterAboveGroundCopy[ind] > 1.0F)? 1.0F : waterAboveGroundCopy[ind];
-        waterAboveGround[ind] -= waterLoss;
-        float waterToEachNeighbor = waterLoss / lowestNeighbors[ind].num;
-        // update the water above ground for each neighbor
-        for (size_t i = 0; i < lowestNeighbors[ind].num; ++i) {
-            waterAboveGround[lowestNeighbors[ind].indexes[i]] += waterToEachNeighbor;
-        }
-    }
-}
+void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors);
 
 inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, const size_t dim_landscape) {
     LowestNeighbors *lowestNeighbors = new LowestNeighbors[dim_landscape*dim_landscape];
@@ -88,11 +74,28 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
     float *waterAboveGroundCopy = new float[dim_landscape*dim_landscape];
     // calculate the loest neighbor for each cell
     const LowestNeighbors *lowestNeighbors = initLowestNeighbors(elevation_map, dim_landscape);
-    while (!allAbsorbed) {
+    std::thread threads[NUM_THREADS]; 
+    for (size_t id = 0; id < NUM_THREADS; ++id) {
+        threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, absorption_rate, waterAboveGroundCopy, lowestNeighbors);
+    }
+    for (auto &th : threads) {
+        th.join();
+    }
+    delete[] lowestNeighbors;
+    delete[] waterAboveGroundCopy;
+    return num_steps;
+}
+
+void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, const float &absorption_rate, float *waterAboveGroundCopy, const LowestNeighbors *lowestNeighbors)
+{
+    while (!allAbsorbed)
+    {
         allAbsorbed = true;
         // traverse the landscape
-        for (size_t ind=0; ind<dim_landscape*dim_landscape; ++ind) {
-            if (num_steps < rain_time) {
+        for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
+        {
+            if (num_steps < rain_time)
+            {
                 waterAboveGround[ind] += 1.0F;
             }
             // absorb water
@@ -100,26 +103,27 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
             // update water above ground
             waterAboveGround[ind] = std::max(0.0F, waterAboveGround[ind] - absorption_rate);
             waterAboveGroundCopy[ind] = waterAboveGround[ind];
-            if (waterAboveGround[ind] > 0.0F) {
+            if (waterAboveGround[ind] > 0.0F)
+            {
                 allAbsorbed = false;
             }
         }
-        for (size_t ind = 0; ind < dim_landscape*dim_landscape; ++ind) {
-            // calculate the amount of water that can flow to the each of the lowest neighbor 
-            if (lowestNeighbors[ind].num == 0) {
+        for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
+        {
+            // calculate the amount of water that can flow to the each of the lowest neighbor
+            if (lowestNeighbors[ind].num == 0)
+            {
                 continue;
             }
-            float waterLoss =  (waterAboveGroundCopy[ind] > 1.0F)? 1.0F : waterAboveGroundCopy[ind];
+            float waterLoss = (waterAboveGroundCopy[ind] > 1.0F) ? 1.0F : waterAboveGroundCopy[ind];
             waterAboveGround[ind] -= waterLoss;
             float waterToEachNeighbor = waterLoss / lowestNeighbors[ind].num;
             // update the water above ground for each neighbor
-            for (size_t i = 0; i < lowestNeighbors[ind].num; ++i) {
+            for (size_t i = 0; i < lowestNeighbors[ind].num; ++i)
+            {
                 waterAboveGround[lowestNeighbors[ind].indexes[i]] += waterToEachNeighbor;
             }
         }
         ++num_steps;
     }
-    delete[] lowestNeighbors;
-    delete[] waterAboveGroundCopy;
-    return num_steps;
 }
