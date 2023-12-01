@@ -1,19 +1,38 @@
 #include "rainfall_simulation.h"
 #include <iostream>
 #include <algorithm>
+#include <thread>
 
-// Store the indexes of the cells that can flow water to the current cell
-struct FromNeighbors {
+struct LowestNeighbors {
     size_t indexes[4];
     size_t num;
-    size_t numOut;
 };
 
-inline const FromNeighbors *initFromNeighbors(const int *elevation_map, const size_t dim_landscape) {
-    FromNeighbors *fromNeighbors = new FromNeighbors[dim_landscape*dim_landscape]();
+inline void flow_to_neighbor(float *waterAboveGround, const int *elevation_map, float *waterAboveGroundCopy, 
+const LowestNeighbors *lowestNeighbors,const size_t dim_landscape ) {
+    // find the lowest neighbor for each cell, if equal elevation, evenly divide the water
+    for (size_t ind = 0; ind < dim_landscape*dim_landscape; ++ind) {
+        // calculate the amount of water that can flow to the each of the lowest neighbor 
+        if (lowestNeighbors[ind].num == 0) {
+            continue;
+        }
+        float waterLoss =  (waterAboveGroundCopy[ind] > 1.0F)? 1.0F : waterAboveGroundCopy[ind];
+        waterAboveGround[ind] -= waterLoss;
+        float waterToEachNeighbor = waterLoss / lowestNeighbors[ind].num;
+        // update the water above ground for each neighbor
+        for (size_t i = 0; i < lowestNeighbors[ind].num; ++i) {
+            waterAboveGround[lowestNeighbors[ind].indexes[i]] += waterToEachNeighbor;
+        }
+    }
+}
+
+inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, const size_t dim_landscape) {
+    LowestNeighbors *lowestNeighbors = new LowestNeighbors[dim_landscape*dim_landscape];
     #define IND(i,j) ((i)*dim_landscape + (j))
-    for (size_t i=0 ; i<dim_landscape; ++i) {
+    // calculate the lowest neighbor for each cell
+    for (size_t i=0; i<dim_landscape; ++i) {
         for (size_t j=0; j<dim_landscape; ++j) {
+            lowestNeighbors[IND(i,j)].num = 0;
             // find the lowest elevation among the neighbors
             int lowestElevation = elevation_map[IND(i,j)];
             // left
@@ -39,78 +58,68 @@ inline const FromNeighbors *initFromNeighbors(const int *elevation_map, const si
             }
             // left
             if (j > 0 && elevation_map[IND(i,j-1)] == lowestElevation) {
-                fromNeighbors[IND(i, j-1)].indexes[fromNeighbors[IND(i, j-1)].num] = IND(i,j); 
-                ++fromNeighbors[IND(i, j-1)].num;
-                ++fromNeighbors[IND(i,j)].numOut;
+                lowestNeighbors[IND(i,j)].indexes[lowestNeighbors[IND(i,j)].num] = IND(i,j-1);
+                ++lowestNeighbors[IND(i,j)].num;
             }
             // right
             if (j < dim_landscape-1 && elevation_map[IND(i,j+1)] == lowestElevation) {
-                fromNeighbors[IND(i, j+1)].indexes[fromNeighbors[IND(i, j+1)].num] = IND(i,j);
-                ++fromNeighbors[IND(i, j+1)].num;
-                ++fromNeighbors[IND(i,j)].numOut;
+                lowestNeighbors[IND(i,j)].indexes[lowestNeighbors[IND(i,j)].num] = IND(i,j+1);
+                ++lowestNeighbors[IND(i,j)].num;
             }
             // up
             if (i > 0 && elevation_map[IND(i-1,j)] == lowestElevation) {
-                fromNeighbors[IND(i-1, j)].indexes[fromNeighbors[IND(i-1, j)].num] = IND(i,j);
-                ++fromNeighbors[IND(i-1, j)].num;
-                ++fromNeighbors[IND(i,j)].numOut;
+                lowestNeighbors[IND(i,j)].indexes[lowestNeighbors[IND(i,j)].num] = IND(i-1,j);
+                ++lowestNeighbors[IND(i,j)].num;
             }
             // down
             if (i < dim_landscape-1 && elevation_map[IND(i+1,j)] == lowestElevation) {
-                fromNeighbors[IND(i+1, j)].indexes[fromNeighbors[IND(i+1, j)].num] = IND(i,j);
-                ++fromNeighbors[IND(i+1, j)].num;
-                ++fromNeighbors[IND(i,j)].numOut;
+                lowestNeighbors[IND(i,j)].indexes[lowestNeighbors[IND(i,j)].num] = IND(i+1,j);
+                ++lowestNeighbors[IND(i,j)].num;
             }
-        } 
-    } 
-    return fromNeighbors;
-}
-
-void printFromNeighbors(const FromNeighbors *fromNeighbors, const size_t dim_landscape) {
-    for (size_t ind = 0; ind < dim_landscape*dim_landscape; ++ind) {
-        std::cout << "Cell " << ind << " has " << fromNeighbors[ind].num << " neighbors: ";
-        for (size_t i = 0; i < fromNeighbors[ind].num; ++i) {
-            std::cout << fromNeighbors[ind].indexes[i] << " ";
         }
-        std::cout << std::endl;
     }
+    return lowestNeighbors;
 }
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
                      const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
     size_t num_steps = 0; // number of steps taken for all the water to be absorbed
     bool allAbsorbed = false;
-    float *waterAboveGroundNext = new float[dim_landscape*dim_landscape];
-    float * const waterAboveGroundNextCopy = waterAboveGroundNext;
+    float *waterAboveGroundCopy = new float[dim_landscape*dim_landscape];
     // calculate the loest neighbor for each cell
-    const FromNeighbors *fromNeighbors = initFromNeighbors(elevation_map, dim_landscape);
-    printFromNeighbors(fromNeighbors, dim_landscape);
+    const LowestNeighbors *lowestNeighbors = initLowestNeighbors(elevation_map, dim_landscape);
     while (!allAbsorbed) {
         allAbsorbed = true;
         // traverse the landscape
         for (size_t ind=0; ind<dim_landscape*dim_landscape; ++ind) {
-            float rainAmount = (num_steps < rain_time)? 1.0F : 0.0F; 
-            float rainAbsorbed = std::min(waterAboveGround[ind], absorption_rate);
-            float waterLoss;
-            if (fromNeighbors[ind].numOut == 0) {
-                waterLoss = 0.0F;
-            } else {
-                waterLoss =  (waterAboveGround[ind] > 1.0F)? 1.0F : waterAboveGround[ind];
+            if (num_steps < rain_time) {
+                waterAboveGround[ind] += 1.0F;
             }
-            float waterFromNeighbors = 0.0F;
-            for (size_t i = 0; i < fromNeighbors[ind].num; ++i) {
-                size_t neighborIndex = fromNeighbors[ind].indexes[i];
-                waterFromNeighbors += waterAboveGround[neighborIndex]/fromNeighbors[neighborIndex].numOut;
-            }
-            waterAboveGroundNext[ind] = waterAboveGround[ind] + rainAmount - rainAbsorbed - waterLoss + waterFromNeighbors;
-            if (waterAboveGroundNext[ind] > 0.0F) {
+            // absorb water
+            waterAbsorbed[ind] += std::min(waterAboveGround[ind], absorption_rate);
+            // update water above ground
+            waterAboveGround[ind] = std::max(0.0F, waterAboveGround[ind] - absorption_rate);
+            waterAboveGroundCopy[ind] = waterAboveGround[ind];
+            if (waterAboveGround[ind] > 0.0F) {
                 allAbsorbed = false;
             }
         }
-        std::swap(waterAboveGround, waterAboveGroundNext);
+        for (size_t ind = 0; ind < dim_landscape*dim_landscape; ++ind) {
+            // calculate the amount of water that can flow to the each of the lowest neighbor 
+            if (lowestNeighbors[ind].num == 0) {
+                continue;
+            }
+            float waterLoss =  (waterAboveGroundCopy[ind] > 1.0F)? 1.0F : waterAboveGroundCopy[ind];
+            waterAboveGround[ind] -= waterLoss;
+            float waterToEachNeighbor = waterLoss / lowestNeighbors[ind].num;
+            // update the water above ground for each neighbor
+            for (size_t i = 0; i < lowestNeighbors[ind].num; ++i) {
+                waterAboveGround[lowestNeighbors[ind].indexes[i]] += waterToEachNeighbor;
+            }
+        }
         ++num_steps;
     }
-    delete[] fromNeighbors;
-    delete[] waterAboveGroundNextCopy;
+    delete[] lowestNeighbors;
+    delete[] waterAboveGroundCopy;
     return num_steps;
 }
