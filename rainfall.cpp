@@ -38,6 +38,10 @@ int main(int argc, char * argv[]) {
     std::ifstream landscape_file(argv[5], std::ifstream::in);
     #endif
     // read in the landscape and establish the elevation map
+    if (landscape_file.fail()) {
+        std::cout << "Error: cannot open file " << argv[4] << std::endl;
+        return EXIT_FAILURE;
+    }
     int *elevationMap = createElevationMap(landscape_file, dim_landscape);
     // set up water above the ground (currently)
     float *waterAboveGround  = new float[dim_landscape*dim_landscape]();
