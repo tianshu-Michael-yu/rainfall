@@ -97,16 +97,16 @@ std::barrier<void (*)()> *waterFlowBarrier;
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
                      const size_t rain_time, const float absorption_rate, const size_t dim_landscape,
-                     const size_t NUM_THREADS) {
+                     const size_t num_threads) {
     // calculate the loest neighbor for each cell
     Neighbors *neighbors = initNeighbors(elevation_map, dim_landscape);
-    std::thread threads[NUM_THREADS]; 
-    iterationBarrier = new std::barrier(NUM_THREADS, 
+    std::thread threads[num_threads]; 
+    iterationBarrier = new std::barrier(num_threads, 
     setAllAbsorbed); 
-    waterFlowBarrier = new std::barrier(NUM_THREADS,
+    waterFlowBarrier = new std::barrier(num_threads,
     incrNumSteps);
-    size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, NUM_THREADS); 
-    for (size_t id = 0; id < NUM_THREADS; ++id) {
+    size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, num_threads); 
+    for (size_t id = 0; id < num_threads; ++id) {
         threads[id] = std::thread(simulate, dim_landscape, 
          rain_time, waterAboveGround, waterAbsorbed, 
         absorption_rate,  neighbors, itPerBlock, id);
