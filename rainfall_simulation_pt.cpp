@@ -81,17 +81,6 @@ inline Neighbors *initNeighbors(const int *elevation_map, const size_t dim_lands
     return neighbors;
 }
 
-template <typename T>
-inline void printMatrix(const T *matrix, const size_t dim_landscape) {
-    for (size_t i = 0; i < dim_landscape; ++i) {
-        for (size_t j = 0; j < dim_landscape; ++j) {
-            std::cout << matrix[i*dim_landscape + j] << " ";
-        }
-        std::cout << std::endl;
-    }
-}
-
-
 
 bool allAbsorbed = false;
 size_t num_steps = 0; // number of steps taken for all the water to be absorbed
