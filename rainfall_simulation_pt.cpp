@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <thread>
 #include <barrier>
+#include <functional>
 
 #define NUM_THREADS 1
 
@@ -19,8 +20,8 @@ constexpr size_t ceilDiv(const size_t &a, const size_t &b) {
 
 void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
-const float &absorption_rate, float *waterAboveGroundCopy, Neighbors *lowestNeighbors, 
-const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> *iterationBarrier);
+const float &absorption_rate, float *waterAboveGroundCopy, Neighbors *neighbors, 
+const size_t itPerBlock, const size_t id);
  
 inline Neighbors *initNeighbors(const int *elevation_map, const size_t dim_landscape) {
     Neighbors *neighbors = new Neighbors[dim_landscape*dim_landscape]();
@@ -80,20 +81,24 @@ inline Neighbors *initNeighbors(const int *elevation_map, const size_t dim_lands
     return neighbors;
 }
 
+bool allAbsorbed = false;
+size_t num_steps = 0; // number of steps taken for all the water to be absorbed
+std::barrier iterationBarrier(NUM_THREADS, 
+    []() noexcept {allAbsorbed = true;});
+std::barrier waterFlowBarrier(NUM_THREADS,
+    []() noexcept {++num_steps;});
+
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
                      const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
-    size_t num_steps = 0; // number of steps taken for all the water to be absorbed
-    bool allAbsorbed = false;
     float *waterAboveGroundCopy = new float[dim_landscape*dim_landscape];
     // calculate the loest neighbor for each cell
     Neighbors *neighbors = initNeighbors(elevation_map, dim_landscape);
     std::thread threads[NUM_THREADS]; 
     size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, NUM_THREADS); 
-    std::barrier<std::__empty_completion> iterationBarrier(NUM_THREADS);
     for (size_t id = 0; id < NUM_THREADS; ++id) {
         threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, 
         std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, 
-        absorption_rate, waterAboveGroundCopy, neighbors, itPerBlock, id, &iterationBarrier);
+        absorption_rate, waterAboveGroundCopy, neighbors, itPerBlock, id);
     }
     for (auto &th : threads) {
         th.join();
@@ -106,13 +111,13 @@ int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *e
 void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
 const float &absorption_rate, float *waterAboveGroundCopy, Neighbors *neighbors, 
-const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> *iterationBarrier)
+const size_t itPerBlock, const size_t id)
 {
     size_t start = id*itPerBlock;
     size_t end = std::min(id*itPerBlock +itPerBlock, dim_landscape*dim_landscape);
     while (!allAbsorbed)
     {
-        allAbsorbed = true;
+        iterationBarrier.arrive_and_wait();
         // traverse the landscape
         for (size_t ind = start; ind < end; ++ind)
         {
@@ -138,7 +143,7 @@ const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> 
             float waterToEachNeighbor = waterLoss / neighbors[ind].numOut;           
             neighbors[ind].waterToEachNeighbor = waterToEachNeighbor;
         }
-        iterationBarrier->arrive_and_wait();
+        waterFlowBarrier.arrive_and_wait();
         for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
         {
             // update the water above ground by adding the water that flows from the neighbors
@@ -148,7 +153,5 @@ const size_t itPerBlock, const size_t id, std::barrier<std::__empty_completion> 
                 waterAboveGround[ind] += neighbors[neighborIndex].waterToEachNeighbor;
             }
         }
-        iterationBarrier->arrive_and_wait();
-        ++num_steps;
     }
 }
