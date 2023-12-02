@@ -5,7 +5,7 @@
 #include <barrier>
 #include <functional>
 
-#define NUM_THREADS 1
+#define NUM_THREADS 4
 
 struct Neighbors {
     size_t indexes[4]; // neighbors from which water can flow to the current cell
@@ -81,12 +81,28 @@ inline Neighbors *initNeighbors(const int *elevation_map, const size_t dim_lands
     return neighbors;
 }
 
+template <typename T>
+inline void printMatrix(const T *matrix, const size_t dim_landscape) {
+    for (size_t i = 0; i < dim_landscape; ++i) {
+        for (size_t j = 0; j < dim_landscape; ++j) {
+            std::cout << matrix[i*dim_landscape + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+
+
 bool allAbsorbed = false;
 size_t num_steps = 0; // number of steps taken for all the water to be absorbed
 std::barrier iterationBarrier(NUM_THREADS, 
-    []() noexcept {allAbsorbed = true;});
+    []() noexcept {allAbsorbed = true;
+
+    });
 std::barrier waterFlowBarrier(NUM_THREADS,
-    []() noexcept {++num_steps;});
+    []() noexcept {++num_steps;
+
+    });
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
                      const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
@@ -142,7 +158,7 @@ const size_t itPerBlock, const size_t id)
             neighbors[ind].waterToEachNeighbor = waterToEachNeighbor;
         }
         waterFlowBarrier.arrive_and_wait();
-        for (size_t ind = 0; ind < dim_landscape * dim_landscape; ++ind)
+        for (size_t ind = start; ind < end; ++ind)
         {
             // update the water above ground by adding the water that flows from the neighbors
             for (size_t i = 0; i < neighbors[ind].num; ++i)
