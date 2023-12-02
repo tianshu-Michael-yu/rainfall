@@ -18,9 +18,9 @@ constexpr size_t ceilDiv(const size_t &a, const size_t &b) {
     return (a + b - 1) / b;
 }
 
-void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
+void simulate(const size_t dim_landscape, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
-const float &absorption_rate, float *waterAboveGroundCopy, Neighbors *neighbors, 
+const float &absorption_rate,  Neighbors *neighbors, 
 const size_t itPerBlock, const size_t id);
  
 inline Neighbors *initNeighbors(const int *elevation_map, const size_t dim_landscape) {
@@ -90,27 +90,25 @@ std::barrier waterFlowBarrier(NUM_THREADS,
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
                      const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
-    float *waterAboveGroundCopy = new float[dim_landscape*dim_landscape];
     // calculate the loest neighbor for each cell
     Neighbors *neighbors = initNeighbors(elevation_map, dim_landscape);
     std::thread threads[NUM_THREADS]; 
     size_t itPerBlock = ceilDiv(dim_landscape*dim_landscape, NUM_THREADS); 
     for (size_t id = 0; id < NUM_THREADS; ++id) {
-        threads[id] = std::thread(simulate, std::ref(allAbsorbed), dim_landscape, 
-        std::ref(num_steps), rain_time, waterAboveGround, waterAbsorbed, 
-        absorption_rate, waterAboveGroundCopy, neighbors, itPerBlock, id);
+        threads[id] = std::thread(simulate, dim_landscape, 
+         rain_time, waterAboveGround, waterAbsorbed, 
+        absorption_rate,  neighbors, itPerBlock, id);
     }
     for (auto &th : threads) {
         th.join();
     }
     delete[] neighbors;
-    delete[] waterAboveGroundCopy;
     return num_steps;
 }
 
-void simulate(bool &allAbsorbed, const size_t dim_landscape, size_t &num_steps, 
+void simulate(const size_t dim_landscape, 
 const size_t rain_time, float *waterAboveGround, float *waterAbsorbed, 
-const float &absorption_rate, float *waterAboveGroundCopy, Neighbors *neighbors, 
+const float &absorption_rate,  Neighbors *neighbors, 
 const size_t itPerBlock, const size_t id)
 {
     size_t start = id*itPerBlock;
