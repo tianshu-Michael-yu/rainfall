@@ -16,6 +16,7 @@ inline void printMatrix(const T *matrix, const size_t dim_landscape) {
 }
 
 int main(int argc, char * argv[]) {
+    size_t num_threads = 1;
     // get all the arguments
     #ifdef SEQ
     if (argc != 5) {
@@ -31,7 +32,7 @@ int main(int argc, char * argv[]) {
         std::cout << "Usage: " << argv[0] << " <num_threads> <rain_time> <absorption_rate> <dim_landscape> <landscape_file>" << std::endl;
         return EXIT_FAILURE;
     }
-    const size_t num_threads = atoi(argv[1]);
+    num_threads = atoi(argv[1]);
     const size_t rain_time = atoi(argv[2]);
     const float absorption_rate = atof(argv[3]);
     const size_t dim_landscape = atoi(argv[4]);
@@ -48,7 +49,7 @@ int main(int argc, char * argv[]) {
     float *waterAbsorbed     = new float[dim_landscape*dim_landscape]();
     // loop through time until the water is all absorbed
     clock_t start_time = clock();
-    const size_t num_steps = simulateRainFall(waterAboveGround, waterAbsorbed, elevationMap, rain_time, absorption_rate, dim_landscape);
+    const size_t num_steps = simulateRainFall(waterAboveGround, waterAbsorbed, elevationMap, rain_time, absorption_rate, dim_landscape, num_threads);
     clock_t end_time = clock();
     float run_time = (float)(end_time - start_time) / CLOCKS_PER_SEC;
     // print the abosrbed water 

@@ -81,7 +81,8 @@ inline const LowestNeighbors *initLowestNeighbors(const int *elevation_map, cons
 }
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
-                     const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
+                     const size_t rain_time, const float absorption_rate, const size_t dim_landscape,
+                     const size_t num_threads) {
     size_t num_steps = 0; // number of steps taken for all the water to be absorbed
     bool allAbsorbed = false;
     float *waterAboveGroundCopy = new float[dim_landscape*dim_landscape];

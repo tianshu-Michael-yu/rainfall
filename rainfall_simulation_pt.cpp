@@ -5,8 +5,6 @@
 #include <barrier>
 #include <functional>
 
-#define NUM_THREADS 4
-
 struct Neighbors {
     size_t indexes[4]; // neighbors from which water can flow to the current cell
     size_t num; // number of neighbors
@@ -98,7 +96,8 @@ std::barrier<void (*)()> *waterFlowBarrier;
 
 
 int simulateRainFall(float *waterAboveGround, float *waterAbsorbed, const int *elevation_map,
-                     const size_t rain_time, const float absorption_rate, const size_t dim_landscape) {
+                     const size_t rain_time, const float absorption_rate, const size_t dim_landscape,
+                     const size_t NUM_THREADS) {
     // calculate the loest neighbor for each cell
     Neighbors *neighbors = initNeighbors(elevation_map, dim_landscape);
     std::thread threads[NUM_THREADS]; 
