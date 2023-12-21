@@ -1,9 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
-#include <ctime>
+#include <chrono>
 #include "rainfall_simulation.h"
 #include "io_processing.h"
+
 
 template <typename T>
 inline void printMatrix(const T *matrix, const size_t dim_landscape) {
@@ -48,12 +49,14 @@ int main(int argc, char * argv[]) {
     float *waterAboveGround  = new float[dim_landscape*dim_landscape]();
     float *waterAbsorbed     = new float[dim_landscape*dim_landscape]();
     // loop through time until the water is all absorbed
-    clock_t start_time = clock();
+    // record wall clock time
+    auto start_time = std::chrono::system_clock::now();
     const size_t num_steps = simulateRainFall(waterAboveGround, waterAbsorbed, elevationMap, rain_time, absorption_rate, dim_landscape, num_threads);
-    clock_t end_time = clock();
-    float run_time = (float)(end_time - start_time) / CLOCKS_PER_SEC;
+    auto end_time = std::chrono::system_clock::now();
+    std::chrono::duration<double> run_time = end_time - start_time;
+    float run_time_float = run_time.count();
     // print the abosrbed water 
-    printOutput(waterAbsorbed, dim_landscape, num_steps, run_time);
+    printOutput(waterAbsorbed, dim_landscape, num_steps, run_time_float);
     // clean up
     delete[] waterAboveGround;
     delete[] waterAbsorbed;
